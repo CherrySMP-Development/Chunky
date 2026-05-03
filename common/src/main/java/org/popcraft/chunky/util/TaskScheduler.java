@@ -12,12 +12,12 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public class TaskScheduler {
-    private static final int DEFAULT_MAX_THREADS = Math.max(1, Runtime.getRuntime().availableProcessors());
+    private static final int DEFAULT_MAX_THREADS = Math.min(Math.max(1, Runtime.getRuntime().availableProcessors()), 16);
     private static final String PAPER_GLOBAL_CONFIG = "paper-global.yml";
-    private static final int MAX_THREADS = Input.tryInteger(System.getProperty("chunky.maxThreads"))
+    private static final int MAX_THREADS = Math.max(1, Input.tryInteger(System.getProperty("chunky.maxThreads"))
             .or(() -> Input.tryInteger(System.getProperty("Paper.WorkerThreadCount")))
             .or(TaskScheduler::readPaperWorkerThreads)
-            .orElse(DEFAULT_MAX_THREADS);
+            .orElse(DEFAULT_MAX_THREADS));
     private final ExecutorService executor;
     private final Set<Future<?>> futures = ConcurrentHashMap.newKeySet();
 

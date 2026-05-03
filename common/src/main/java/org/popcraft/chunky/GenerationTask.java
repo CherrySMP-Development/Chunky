@@ -16,14 +16,18 @@ import org.popcraft.chunky.util.RegionCache;
 import org.popcraft.chunky.util.TranslationKey;
 
 import java.util.Deque;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class GenerationTask implements Runnable {
-    private static final int DEFAULT_MAX_WORKING_COUNT = Math.max(Runtime.getRuntime().availableProcessors() * 256, 512);
-    private static final int MAX_WORKING_COUNT = Input.tryInteger(System.getProperty("chunky.maxWorkingCount")).orElse(DEFAULT_MAX_WORKING_COUNT);
+    private static final String PAPER_GLOBAL_CONFIG = "paper-global.yml";
+    private static final int DEFAULT_MAX_WORKING_COUNT = Math.max(resolveDefaultWorkerThreads() * 32, 256);
+    private static final int MAX_WORKING_COUNT = Math.max(1, Input.tryInteger(System.getProperty("chunky.maxWorkingCount")).orElse(DEFAULT_MAX_WORKING_COUNT));
     private static final double SAMPLE_INTERVAL = 1000d * Math.max(Input.tryInteger(System.getProperty("chunky.sampleInterval")).orElse(30), 30);
     private static final double SAMPLE_SUB_INTERVAL = SAMPLE_INTERVAL / 30;
     private final Chunky chunky;
@@ -208,6 +212,43 @@ public class GenerationTask implements Runnable {
         return progress;
     }
 
+
+    private static int resolveDefaultWorkerThreads() {
+        return Math.max(1, Input.tryInteger(System.getProperty("Paper.WorkerThreadCount"))
+                .or(GenerationTask::readPaperWorkerThreads)
+                .orElse(Math.min(Math.max(1, Runtime.getRuntime().availableProcessors()), 16)));
+    }
+
+    private static java.util.Optional<Integer> readPaperWorkerThreads() {
+        final Path path = Path.of(PAPER_GLOBAL_CONFIG);
+        if (!Files.isRegularFile(path)) {
+            return java.util.Optional.empty();
+        }
+        try {
+            boolean inChunkSystem = false;
+            for (String line : Files.readAllLines(path)) {
+                final String trimmed = line.trim();
+                if (trimmed.isEmpty() || trimmed.startsWith("#")) {
+                    continue;
+                }
+                if (trimmed.equals("chunk-system:")) {
+                    inChunkSystem = true;
+                    continue;
+                }
+                if (!line.startsWith(" ") && !line.startsWith("	")) {
+                    inChunkSystem = false;
+                }
+                if (!inChunkSystem) {
+                    continue;
+                }
+                if (trimmed.startsWith("worker-threads:")) {
+                    return Input.tryInteger(trimmed.substring("worker-threads:".length()).trim());
+                }
+            }
+        } catch (IOException ignored) {
+        }
+        return java.util.Optional.empty();
+    }
     @SuppressWarnings("unused")
     public static final class Progress {
         private final String world;

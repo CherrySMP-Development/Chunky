@@ -15,6 +15,8 @@ import org.popcraft.chunky.util.Pair;
 import org.popcraft.chunky.util.RegionCache;
 import org.popcraft.chunky.util.TranslationKey;
 
+import java.lang.management.ManagementFactory;
+import java.lang.management.OperatingSystemMXBean;
 import java.util.Deque;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -118,6 +120,34 @@ public class GenerationTask implements Runnable {
         }
     }
 
+    /**
+     * Get the current effective speed based on CPU load.
+     * If CPU load exceeds 95%, reduce speed proportionally.
+     * Otherwise, use the configured speed.
+     */
+    private int getEffectiveSpeed(final int configuredSpeed) {
+        try {
+            final OperatingSystemMXBean osBean = ManagementFactory.getOperatingSystemMXBean();
+
+            // Try to use the extended interface for process CPU load
+            if (osBean instanceof com.sun.management.OperatingSystemMXBean extendedOsBean) {
+                final double processCpuLoad = extendedOsBean.getProcessCpuLoad();
+
+                // If CPU load is above 95%, reduce speed
+                if (processCpuLoad > 0.95) {
+                    // Reduce speed proportionally: at 100% CPU, reduce to 50% of configured speed
+                    final double reduction = (processCpuLoad - 0.95) / 0.05; // 0 to 1 scale above 95%
+                    final int reducedSpeed = (int) (configuredSpeed * (1.0 - reduction * 0.5));
+                    return Math.max(MIN_SPEED, reducedSpeed);
+                }
+            }
+        } catch (Exception ignored) {
+            // If we can't get CPU load, just use configured speed
+        }
+
+        return configuredSpeed;
+    }
+
     @Override
     public void run() {
         final String poolThreadName = Thread.currentThread().getName();
@@ -125,8 +155,7 @@ public class GenerationTask implements Runnable {
         if (!chunkIterator.process()) {
             stop(true);
         }
-        final int clampedSpeed = Math.max(MIN_SPEED, Math.min(chunky.getSpeed(), MAX_SPEED));
-        final long msPerChunk = 1000 / clampedSpeed;
+        final int configuredSpeed = Math.clamp(chunky.getSpeed(), MIN_SPEED, MAX_SPEED);
         final Semaphore working = new Semaphore(1);
         //noinspection resource
         final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
@@ -162,7 +191,11 @@ public class GenerationTask implements Runnable {
                             return selection.world().getChunkAtAsync(chunk.x(), chunk.z());
                         }
                     }).whenComplete((ignored, ignored2) -> {
-                        // Schedule the release with a delay proportional to CPS limit
+                        // Get the effective speed considering CPU load
+                        final int effectiveSpeed = getEffectiveSpeed(configuredSpeed);
+                        final long msPerChunk = 1000 / effectiveSpeed;
+
+                        // Schedule the release with a delay proportional to effective speed
                         scheduler.schedule(() -> working.release(1), msPerChunk, TimeUnit.MILLISECONDS);
                         update(chunk.x(), chunk.z(), true);
                     });

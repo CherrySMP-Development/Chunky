@@ -22,7 +22,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class GenerationTask implements Runnable {
-    private static final int MIN_SPEED = 500;
+    private static final int MIN_SPEED = 100;
     private static final int MAX_SPEED = 10000;
     private static final double SAMPLE_INTERVAL = 1000d * Math.max(Input.tryInteger(System.getProperty("chunky.sampleInterval")).orElse(30), 30);
     private static final double SAMPLE_SUB_INTERVAL = SAMPLE_INTERVAL / 30;

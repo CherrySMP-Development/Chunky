@@ -136,8 +136,7 @@ public class GenerationTask implements Runnable {
         if (!chunkIterator.process()) {
             stop(true);
         }
-        // Max CPS enforced by the rate limiter
-        final double MAX_CPS = 800.0;
+        // Wir entfernen das Hard-Cap komplett aus der Schleife
         final java.util.concurrent.atomic.AtomicInteger inFlight = new java.util.concurrent.atomic.AtomicInteger(0);
         final boolean forceLoadExistingChunks = chunky.getConfig().isForceLoadExistingChunks();
         startTime.set(System.currentTimeMillis());
@@ -152,7 +151,7 @@ public class GenerationTask implements Runnable {
                     if (!warnedCpu) {
                         final double cpuLoad = getCpuLoad();
                         if (cpuLoad > 0.95) {
-                            chunky.getServer().getConsole().sendMessage("§c[Chunky] Warning: CPU load is >95%! Generation speed is locked at 800 CPS and will not throttle. Performance may degrade.§r");
+                            chunky.getServer().getConsole().sendMessage("§c[Chunky] Warning: CPU load is >95%! Generation speed is uncapped. Performance may degrade.§r");
                             warnedCpu = true;
                         }
                     }
@@ -166,27 +165,7 @@ public class GenerationTask implements Runnable {
         cpuMonitorThread.setDaemon(true);
         cpuMonitorThread.start();
 
-        long lastChunkTime = System.nanoTime();
-
         while (!stopped && chunkIterator.hasNext()) {
-            try {
-                // Enforce maximum absolute CPS rate limit (applies to ALL chunks including skipped)
-                final long minIntervalNs = (long) (1_000_000_000.0 / MAX_CPS);
-                long elapsed;
-                while ((elapsed = System.nanoTime() - lastChunkTime) < minIntervalNs && !stopped) {
-                    if (minIntervalNs - elapsed > 2_000_000) {
-                        //noinspection BusyWait
-                        Thread.sleep(1);
-                    } else {
-                        Thread.yield();
-                    }
-                }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                stop(cancelled);
-                break;
-            }
-            lastChunkTime = System.nanoTime();
 
             final ChunkCoordinate chunk = chunkIterator.next();
             final int chunkCenterX = (chunk.x() << 4) + 8;

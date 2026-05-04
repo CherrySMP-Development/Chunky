@@ -201,8 +201,9 @@ public class GenerationTask implements Runnable {
             }
             try {
 
-                // Wait until we are under the max concurrent limit (sanity cap 500)
-                while (inFlight.get() >= 500 && !stopped) {
+                // Wait until we are under the max concurrent limit
+                // Increased to 10000 to ensure all server worker threads are fully saturated
+                while (inFlight.get() >= 10000 && !stopped) {
                     //noinspection BusyWait
                     Thread.sleep(2);
                 }

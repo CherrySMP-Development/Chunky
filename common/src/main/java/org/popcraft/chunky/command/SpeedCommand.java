@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Optional;
 
 public class SpeedCommand implements ChunkyCommand {
-    private static final int MIN_CPS = 500;
+    private static final int MIN_CPS = 100;
     private static final int MAX_CPS = 10000;
     private final Chunky chunky;
 
@@ -35,7 +35,7 @@ public class SpeedCommand implements ChunkyCommand {
     @Override
     public List<String> suggestions(final CommandArguments arguments) {
         if (arguments.size() == 1) {
-            return List.of("500", "1000", "2000", "3000", "5000", "7500", "10000");
+            return List.of("100", "150", "200", "300", "500", "1000", "2000", "3000", "5000", "7500", "10000");
         }
         return List.of();
     }

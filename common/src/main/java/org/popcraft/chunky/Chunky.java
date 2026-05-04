@@ -62,7 +62,7 @@ public class Chunky {
     private final Version version;
     private final Map<String, ChunkyCommand> commands;
     private final ChunkyAPI api;
-    private volatile int speed = 2000;
+    private volatile int speed = 100;
 
     public Chunky(final Server server, final Config config) {
         this.server = server;

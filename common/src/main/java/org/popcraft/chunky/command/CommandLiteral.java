@@ -26,6 +26,7 @@ public final class CommandLiteral {
     public static final String SHAPE = "shape";
     public static final String SILENT = "silent";
     public static final String SPAWN = "spawn";
+    public static final String SPEED = "speed";
     public static final String START = "start";
     public static final String TRIM = "trim";
     public static final String TRIM_MODE = "trimMode";

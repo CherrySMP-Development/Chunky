@@ -48,6 +48,7 @@ public final class TranslationKey {
     public static final String FORMAT_SELECTION_WORLD = "format_selection_world";
     public static final String FORMAT_SHAPE = "format_shape";
     public static final String FORMAT_SILENT = "format_silent";
+    public static final String FORMAT_SPEED = "format_speed";
     public static final String FORMAT_START = "format_start";
     public static final String FORMAT_START_CONFIRM = "format_start_confirm";
     public static final String FORMAT_START_DISK = "format_start_disk";
@@ -73,6 +74,7 @@ public final class TranslationKey {
     public static final String HELP_SHAPE = "help_shape";
     public static final String HELP_SILENT = "help_silent";
     public static final String HELP_SPAWN = "help_spawn";
+    public static final String HELP_SPEED = "help_speed";
     public static final String HELP_START = "help_start";
     public static final String HELP_WORLD = "help_world";
     public static final String HELP_WORLDBORDER = "help_worldborder";

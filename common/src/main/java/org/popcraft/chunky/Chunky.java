@@ -20,6 +20,7 @@ import org.popcraft.chunky.command.SelectionCommand;
 import org.popcraft.chunky.command.ShapeCommand;
 import org.popcraft.chunky.command.SilentCommand;
 import org.popcraft.chunky.command.SpawnCommand;
+import org.popcraft.chunky.command.SpeedCommand;
 import org.popcraft.chunky.command.StartCommand;
 import org.popcraft.chunky.command.TrimCommand;
 import org.popcraft.chunky.command.WorldBorderCommand;
@@ -61,6 +62,7 @@ public class Chunky {
     private final Version version;
     private final Map<String, ChunkyCommand> commands;
     private final ChunkyAPI api;
+    private volatile int speed = 2000;
 
     public Chunky(final Server server, final Config config) {
         this.server = server;
@@ -121,6 +123,7 @@ public class Chunky {
         commandMap.put(CommandLiteral.SHAPE, new ShapeCommand(this));
         commandMap.put(CommandLiteral.SILENT, new SilentCommand(this));
         commandMap.put(CommandLiteral.SPAWN, new SpawnCommand(this));
+        commandMap.put(CommandLiteral.SPEED, new SpeedCommand(this));
         commandMap.put(CommandLiteral.START, new StartCommand(this));
         commandMap.put(CommandLiteral.TRIM, new TrimCommand(this));
         commandMap.put(CommandLiteral.WORLDBORDER, new WorldBorderCommand(this));
@@ -192,5 +195,13 @@ public class Chunky {
 
     public ChunkyAPI getApi() {
         return api;
+    }
+
+    public int getSpeed() {
+        return speed;
+    }
+
+    public void setSpeed(final int speed) {
+        this.speed = speed;
     }
 }

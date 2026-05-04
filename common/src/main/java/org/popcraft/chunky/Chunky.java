@@ -70,7 +70,7 @@ public class Chunky {
         this.taskLoader = new TaskLoader(this);
         this.eventBus = new EventBus();
         this.selection = Selection.builder(this, server.getWorlds().get(0));
-        this.limit = loadLimit().orElse(Double.MAX_VALUE);
+        this.limit = loadLimit().orElse(100D);
         this.version = loadVersion();
         this.commands = loadCommands();
         this.api = new ChunkyAPIImpl(this);

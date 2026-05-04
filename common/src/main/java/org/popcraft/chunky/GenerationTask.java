@@ -138,26 +138,23 @@ public class GenerationTask implements Runnable {
         }
         // Max CPS enforced by the rate limiter
         final double MAX_CPS = 800.0;
-        final java.util.concurrent.atomic.AtomicReference<Double> currentCpsTarget = new java.util.concurrent.atomic.AtomicReference<>(100.0);
         final java.util.concurrent.atomic.AtomicInteger inFlight = new java.util.concurrent.atomic.AtomicInteger(0);
         final boolean forceLoadExistingChunks = chunky.getConfig().isForceLoadExistingChunks();
         startTime.set(System.currentTimeMillis());
 
-        // Background thread for adaptive CPU throttling
+        // Background thread for CPU monitoring
         final Thread cpuMonitorThread = new Thread(() -> {
+            boolean warnedCpu = false;
             while (!stopped && !Thread.currentThread().isInterrupted()) {
                 try {
                     //noinspection BusyWait
-                    Thread.sleep(500); // Check CPU every 500ms
-                    final double cpuLoad = getCpuLoad();
-                    final double current = currentCpsTarget.get();
-
-                    if (cpuLoad > 0.95 && current > 100.0) {
-                        // CPU overload: reduce CPS target aggressively (20%)
-                        currentCpsTarget.set(Math.max(100.0, current * 0.8));
-                    } else if (cpuLoad < 0.85 && current < MAX_CPS) {
-                        // CPU underutilized: increase CPS target safely
-                        currentCpsTarget.set(Math.min(MAX_CPS, current + 50.0));
+                    Thread.sleep(5000); // Check CPU every 5s
+                    if (!warnedCpu) {
+                        final double cpuLoad = getCpuLoad();
+                        if (cpuLoad > 0.95) {
+                            chunky.getServer().getConsole().sendMessage("§c[Chunky] Warning: CPU load is >95%! Generation speed is locked at 800 CPS and will not throttle. Performance may degrade.§r");
+                            warnedCpu = true;
+                        }
                     }
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -174,7 +171,7 @@ public class GenerationTask implements Runnable {
         while (!stopped && chunkIterator.hasNext()) {
             try {
                 // Enforce maximum absolute CPS rate limit (applies to ALL chunks including skipped)
-                final long minIntervalNs = (long) (1_000_000_000.0 / currentCpsTarget.get());
+                final long minIntervalNs = (long) (1_000_000_000.0 / MAX_CPS);
                 long elapsed;
                 while ((elapsed = System.nanoTime() - lastChunkTime) < minIntervalNs && !stopped) {
                     if (minIntervalNs - elapsed > 2_000_000) {

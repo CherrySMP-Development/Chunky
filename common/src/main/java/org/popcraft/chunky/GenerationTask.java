@@ -123,7 +123,7 @@ public class GenerationTask implements Runnable {
             stop(true);
         }
         final int clampedSpeed = Math.max(MIN_SPEED, Math.min(chunky.getSpeed(), MAX_SPEED));
-        final Semaphore working = new Semaphore(Math.max(1, clampedSpeed / 100));
+        final Semaphore working = new Semaphore(Math.max(1, clampedSpeed / 10));
         final boolean forceLoadExistingChunks = chunky.getConfig().isForceLoadExistingChunks();
         startTime.set(System.currentTimeMillis());
         while (!stopped && chunkIterator.hasNext()) {

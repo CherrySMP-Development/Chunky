@@ -172,6 +172,25 @@ public class GenerationTask implements Runnable {
         long lastChunkTime = System.nanoTime();
 
         while (!stopped && chunkIterator.hasNext()) {
+            try {
+                // Enforce maximum absolute CPS rate limit (applies to ALL chunks including skipped)
+                final long minIntervalNs = (long) (1_000_000_000.0 / currentCpsTarget.get());
+                long elapsed;
+                while ((elapsed = System.nanoTime() - lastChunkTime) < minIntervalNs && !stopped) {
+                    if (minIntervalNs - elapsed > 2_000_000) {
+                        //noinspection BusyWait
+                        Thread.sleep(1);
+                    } else {
+                        Thread.yield();
+                    }
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                stop(cancelled);
+                break;
+            }
+            lastChunkTime = System.nanoTime();
+
             final ChunkCoordinate chunk = chunkIterator.next();
             final int chunkCenterX = (chunk.x() << 4) + 8;
             final int chunkCenterZ = (chunk.z() << 4) + 8;
@@ -184,18 +203,6 @@ public class GenerationTask implements Runnable {
                 continue;
             }
             try {
-                // Enforce maximum CPS rate limit softly
-                final long minIntervalNs = (long) (1_000_000_000.0 / currentCpsTarget.get());
-                long elapsed;
-                while ((elapsed = System.nanoTime() - lastChunkTime) < minIntervalNs && !stopped) {
-                    if (minIntervalNs - elapsed > 2_000_000) {
-                        //noinspection BusyWait
-                        Thread.sleep(1);
-                    } else {
-                        Thread.yield();
-                    }
-                }
-                lastChunkTime = System.nanoTime();
 
                 // Wait until we are under the max concurrent limit (sanity cap 500)
                 while (inFlight.get() >= 500 && !stopped) {

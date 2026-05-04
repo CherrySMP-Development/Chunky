@@ -100,5 +100,7 @@
   "wrap_none": "keine",
   "wrap_radial": "radial",
   "wrap_x": "x",
-  "wrap_z": "z"
+  "wrap_z": "z",
+  "help_speed": "&2chunky speed <500-3000>&r - Setzt das Ziel für die Generierungsgeschwindigkeit",
+  "format_speed": "Geschwindigkeitsziel auf %s cps gesetzt."
 }

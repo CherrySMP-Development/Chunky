@@ -18,7 +18,10 @@ import org.popcraft.chunky.util.TranslationKey;
 import java.util.Deque;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class GenerationTask implements Runnable {
@@ -123,7 +126,10 @@ public class GenerationTask implements Runnable {
             stop(true);
         }
         final int clampedSpeed = Math.max(MIN_SPEED, Math.min(chunky.getSpeed(), MAX_SPEED));
-        final Semaphore working = new Semaphore(Math.max(1, clampedSpeed));
+        final long msPerChunk = 1000 / clampedSpeed;
+        final Semaphore working = new Semaphore(1);
+        //noinspection resource
+        final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
         final boolean forceLoadExistingChunks = chunky.getConfig().isForceLoadExistingChunks();
         startTime.set(System.currentTimeMillis());
         while (!stopped && chunkIterator.hasNext()) {
@@ -155,10 +161,20 @@ public class GenerationTask implements Runnable {
                         } else {
                             return selection.world().getChunkAtAsync(chunk.x(), chunk.z());
                         }
-                    }).whenComplete((ignored, throwable) -> {
-                        working.release();
+                    }).whenComplete((ignored, ignored2) -> {
+                        // Schedule the release with a delay proportional to CPS limit
+                        scheduler.schedule(() -> working.release(1), msPerChunk, TimeUnit.MILLISECONDS);
                         update(chunk.x(), chunk.z(), true);
                     });
+        }
+        try {
+            scheduler.shutdown();
+            if (!scheduler.awaitTermination(30, TimeUnit.SECONDS)) {
+                scheduler.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            scheduler.shutdownNow();
+            Thread.currentThread().interrupt();
         }
         if (stopped) {
             chunky.getServer().getConsole().sendMessagePrefixed(TranslationKey.TASK_STOPPED, selection.world().getName());

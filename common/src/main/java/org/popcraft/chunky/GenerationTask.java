@@ -20,7 +20,6 @@ import java.lang.management.OperatingSystemMXBean;
 import java.util.Deque;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class GenerationTask implements Runnable {
@@ -138,34 +137,27 @@ public class GenerationTask implements Runnable {
         if (!chunkIterator.process()) {
             stop(true);
         }
-        // Use maximum permits - CPU throttling will handle the actual limiting
-        final int maxPermits = 10000;
-        final Semaphore working = new Semaphore(maxPermits);
+        // Use atomic integer for in-flight requests
+        final java.util.concurrent.atomic.AtomicInteger inFlight = new java.util.concurrent.atomic.AtomicInteger(0);
+        final java.util.concurrent.atomic.AtomicInteger maxConcurrent = new java.util.concurrent.atomic.AtomicInteger(MIN_TASK_PERMITS);
         final boolean forceLoadExistingChunks = chunky.getConfig().isForceLoadExistingChunks();
         startTime.set(System.currentTimeMillis());
 
         // Background thread for adaptive CPU throttling
         final Thread cpuMonitorThread = new Thread(() -> {
-            int lastPermits = maxPermits;
             while (!stopped && !Thread.currentThread().isInterrupted()) {
                 try {
                     //noinspection BusyWait
                     Thread.sleep(500); // Check CPU every 500ms
                     final double cpuLoad = getCpuLoad();
-                    final int availablePermits = working.availablePermits();
+                    final int currentMax = maxConcurrent.get();
 
-                    if (cpuLoad > 0.95 && availablePermits > 100) {
-                        // CPU overload: reduce permits by 10%
-                        final int targetPermits = (int) (lastPermits * 0.9);
-                        working.drainPermits();
-                        working.release(Math.max(MIN_TASK_PERMITS, targetPermits));
-                        lastPermits = Math.max(MIN_TASK_PERMITS, targetPermits);
-                    } else if (cpuLoad < 0.85 && availablePermits < maxPermits) {
-                        // CPU underutilized: increase permits by 5%
-                        final int targetPermits = (int) (lastPermits * 1.05);
-                        working.drainPermits();
-                        working.release(Math.min(maxPermits, targetPermits));
-                        lastPermits = Math.min(maxPermits, targetPermits);
+                    if (cpuLoad > 0.95 && currentMax > MIN_TASK_PERMITS) {
+                        // CPU overload: reduce max concurrent aggressively (20%)
+                        maxConcurrent.set(Math.max(MIN_TASK_PERMITS, (int) (currentMax * 0.8)));
+                    } else if (cpuLoad < 0.85 && currentMax < 2500) {
+                        // CPU underutilized: increase max concurrent safely (+5)
+                        maxConcurrent.set(Math.min(2500, currentMax + 5));
                     }
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -190,7 +182,12 @@ public class GenerationTask implements Runnable {
                 continue;
             }
             try {
-                working.acquire();
+                // Wait until we are under the max concurrent limit
+                while (inFlight.get() >= maxConcurrent.get() && !stopped) {
+                    //noinspection BusyWait
+                    Thread.sleep(2);
+                }
+                inFlight.incrementAndGet();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 stop(cancelled);
@@ -207,7 +204,7 @@ public class GenerationTask implements Runnable {
                             return selection.world().getChunkAtAsync(chunk.x(), chunk.z());
                         }
                     }).whenComplete((ignored, ignored2) -> {
-                        working.release();
+                        inFlight.decrementAndGet();
                         update(chunk.x(), chunk.z(), true);
                     });
         }

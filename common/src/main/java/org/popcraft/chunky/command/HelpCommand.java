@@ -21,7 +21,6 @@ public class HelpCommand implements ChunkyCommand {
             CommandLiteral.WORLDBORDER,
             CommandLiteral.CENTER,
             CommandLiteral.SPAWN,
-            CommandLiteral.SPEED,
             CommandLiteral.RADIUS,
             CommandLiteral.CORNERS,
             CommandLiteral.SHAPE,

@@ -20,17 +20,13 @@ import java.lang.management.OperatingSystemMXBean;
 import java.util.Deque;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class GenerationTask implements Runnable {
-    private static final int MIN_SPEED = 100;
-    private static final int MAX_SPEED = 10000;
     private static final double SAMPLE_INTERVAL = 1000d * Math.max(Input.tryInteger(System.getProperty("chunky.sampleInterval")).orElse(30), 30);
     private static final double SAMPLE_SUB_INTERVAL = SAMPLE_INTERVAL / 30;
+    private static final int MIN_TASK_PERMITS = 100;
     private final Chunky chunky;
     private final Selection selection;
     private final Shape shape;
@@ -121,31 +117,18 @@ public class GenerationTask implements Runnable {
     }
 
     /**
-     * Get the current effective speed based on CPU load.
-     * If CPU load exceeds 95%, reduce speed proportionally.
-     * Otherwise, use the configured speed.
+     * Get the current CPU process load.
      */
-    private int getEffectiveSpeed(final int configuredSpeed) {
+    private double getCpuLoad() {
         try {
             final OperatingSystemMXBean osBean = ManagementFactory.getOperatingSystemMXBean();
-
-            // Try to use the extended interface for process CPU load
             if (osBean instanceof com.sun.management.OperatingSystemMXBean extendedOsBean) {
-                final double processCpuLoad = extendedOsBean.getProcessCpuLoad();
-
-                // If CPU load is above 95%, reduce speed
-                if (processCpuLoad > 0.95) {
-                    // Reduce speed proportionally: at 100% CPU, reduce to 50% of configured speed
-                    final double reduction = (processCpuLoad - 0.95) / 0.05; // 0 to 1 scale above 95%
-                    final int reducedSpeed = (int) (configuredSpeed * (1.0 - reduction * 0.5));
-                    return Math.max(MIN_SPEED, reducedSpeed);
-                }
+                return extendedOsBean.getProcessCpuLoad();
             }
         } catch (Exception ignored) {
-            // If we can't get CPU load, just use configured speed
+            // Default to 0 if we can't get CPU load
         }
-
-        return configuredSpeed;
+        return 0.0;
     }
 
     @Override
@@ -155,12 +138,45 @@ public class GenerationTask implements Runnable {
         if (!chunkIterator.process()) {
             stop(true);
         }
-        final int configuredSpeed = Math.clamp(chunky.getSpeed(), MIN_SPEED, MAX_SPEED);
-        final Semaphore working = new Semaphore(1);
-        //noinspection resource
-        final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+        // Use maximum permits - CPU throttling will handle the actual limiting
+        final int maxPermits = 10000;
+        final Semaphore working = new Semaphore(maxPermits);
         final boolean forceLoadExistingChunks = chunky.getConfig().isForceLoadExistingChunks();
         startTime.set(System.currentTimeMillis());
+
+        // Background thread for adaptive CPU throttling
+        final Thread cpuMonitorThread = new Thread(() -> {
+            int lastPermits = maxPermits;
+            while (!stopped && !Thread.currentThread().isInterrupted()) {
+                try {
+                    //noinspection BusyWait
+                    Thread.sleep(500); // Check CPU every 500ms
+                    final double cpuLoad = getCpuLoad();
+                    final int availablePermits = working.availablePermits();
+
+                    if (cpuLoad > 0.95 && availablePermits > 100) {
+                        // CPU overload: reduce permits by 10%
+                        final int targetPermits = (int) (lastPermits * 0.9);
+                        working.drainPermits();
+                        working.release(Math.max(MIN_TASK_PERMITS, targetPermits));
+                        lastPermits = Math.max(MIN_TASK_PERMITS, targetPermits);
+                    } else if (cpuLoad < 0.85 && availablePermits < maxPermits) {
+                        // CPU underutilized: increase permits by 5%
+                        final int targetPermits = (int) (lastPermits * 1.05);
+                        working.drainPermits();
+                        working.release(Math.min(maxPermits, targetPermits));
+                        lastPermits = Math.min(maxPermits, targetPermits);
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        });
+        cpuMonitorThread.setName("Chunky-CPU-Monitor");
+        cpuMonitorThread.setDaemon(true);
+        cpuMonitorThread.start();
+
         while (!stopped && chunkIterator.hasNext()) {
             final ChunkCoordinate chunk = chunkIterator.next();
             final int chunkCenterX = (chunk.x() << 4) + 8;
@@ -191,22 +207,14 @@ public class GenerationTask implements Runnable {
                             return selection.world().getChunkAtAsync(chunk.x(), chunk.z());
                         }
                     }).whenComplete((ignored, ignored2) -> {
-                        // Get the effective speed considering CPU load
-                        final int effectiveSpeed = getEffectiveSpeed(configuredSpeed);
-                        final long msPerChunk = 1000 / effectiveSpeed;
-
-                        // Schedule the release with a delay proportional to effective speed
-                        scheduler.schedule(() -> working.release(1), msPerChunk, TimeUnit.MILLISECONDS);
+                        working.release();
                         update(chunk.x(), chunk.z(), true);
                     });
         }
         try {
-            scheduler.shutdown();
-            if (!scheduler.awaitTermination(30, TimeUnit.SECONDS)) {
-                scheduler.shutdownNow();
-            }
+            cpuMonitorThread.interrupt();
+            cpuMonitorThread.join(5000);
         } catch (InterruptedException e) {
-            scheduler.shutdownNow();
             Thread.currentThread().interrupt();
         }
         if (stopped) {

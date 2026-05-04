@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class GenerationTask implements Runnable {
     private static final int MIN_SPEED = 500;
-    private static final int MAX_SPEED = 3000;
+    private static final int MAX_SPEED = 10000;
     private static final double SAMPLE_INTERVAL = 1000d * Math.max(Input.tryInteger(System.getProperty("chunky.sampleInterval")).orElse(30), 30);
     private static final double SAMPLE_SUB_INTERVAL = SAMPLE_INTERVAL / 30;
     private final Chunky chunky;
@@ -123,7 +123,7 @@ public class GenerationTask implements Runnable {
             stop(true);
         }
         final int clampedSpeed = Math.max(MIN_SPEED, Math.min(chunky.getSpeed(), MAX_SPEED));
-        final Semaphore working = new Semaphore(Math.max(1, clampedSpeed / 100));
+        final Semaphore working = new Semaphore(Math.max(1, clampedSpeed));
         final boolean forceLoadExistingChunks = chunky.getConfig().isForceLoadExistingChunks();
         startTime.set(System.currentTimeMillis());
         while (!stopped && chunkIterator.hasNext()) {

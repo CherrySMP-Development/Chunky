@@ -25,7 +25,6 @@ import java.util.concurrent.atomic.AtomicLong;
 public class GenerationTask implements Runnable {
     private static final double SAMPLE_INTERVAL = 1000d * Math.max(Input.tryInteger(System.getProperty("chunky.sampleInterval")).orElse(30), 30);
     private static final double SAMPLE_SUB_INTERVAL = SAMPLE_INTERVAL / 30;
-    private static final int MIN_TASK_PERMITS = 100;
     private final Chunky chunky;
     private final Selection selection;
     private final Shape shape;
@@ -137,9 +136,10 @@ public class GenerationTask implements Runnable {
         if (!chunkIterator.process()) {
             stop(true);
         }
-        // Use atomic integer for in-flight requests
+        // Max CPS enforced by the rate limiter
+        final double MAX_CPS = 800.0;
+        final java.util.concurrent.atomic.AtomicReference<Double> currentCpsTarget = new java.util.concurrent.atomic.AtomicReference<>(100.0);
         final java.util.concurrent.atomic.AtomicInteger inFlight = new java.util.concurrent.atomic.AtomicInteger(0);
-        final java.util.concurrent.atomic.AtomicInteger maxConcurrent = new java.util.concurrent.atomic.AtomicInteger(MIN_TASK_PERMITS);
         final boolean forceLoadExistingChunks = chunky.getConfig().isForceLoadExistingChunks();
         startTime.set(System.currentTimeMillis());
 
@@ -150,14 +150,14 @@ public class GenerationTask implements Runnable {
                     //noinspection BusyWait
                     Thread.sleep(500); // Check CPU every 500ms
                     final double cpuLoad = getCpuLoad();
-                    final int currentMax = maxConcurrent.get();
+                    final double current = currentCpsTarget.get();
 
-                    if (cpuLoad > 0.95 && currentMax > MIN_TASK_PERMITS) {
-                        // CPU overload: reduce max concurrent aggressively (20%)
-                        maxConcurrent.set(Math.max(MIN_TASK_PERMITS, (int) (currentMax * 0.8)));
-                    } else if (cpuLoad < 0.85 && currentMax < 2500) {
-                        // CPU underutilized: increase max concurrent safely (+5)
-                        maxConcurrent.set(Math.min(2500, currentMax + 5));
+                    if (cpuLoad > 0.95 && current > 100.0) {
+                        // CPU overload: reduce CPS target aggressively (20%)
+                        currentCpsTarget.set(Math.max(100.0, current * 0.8));
+                    } else if (cpuLoad < 0.85 && current < MAX_CPS) {
+                        // CPU underutilized: increase CPS target safely
+                        currentCpsTarget.set(Math.min(MAX_CPS, current + 50.0));
                     }
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -168,6 +168,8 @@ public class GenerationTask implements Runnable {
         cpuMonitorThread.setName("Chunky-CPU-Monitor");
         cpuMonitorThread.setDaemon(true);
         cpuMonitorThread.start();
+
+        long lastChunkTime = System.nanoTime();
 
         while (!stopped && chunkIterator.hasNext()) {
             final ChunkCoordinate chunk = chunkIterator.next();
@@ -182,8 +184,21 @@ public class GenerationTask implements Runnable {
                 continue;
             }
             try {
-                // Wait until we are under the max concurrent limit
-                while (inFlight.get() >= maxConcurrent.get() && !stopped) {
+                // Enforce maximum CPS rate limit softly
+                final long minIntervalNs = (long) (1_000_000_000.0 / currentCpsTarget.get());
+                long elapsed;
+                while ((elapsed = System.nanoTime() - lastChunkTime) < minIntervalNs && !stopped) {
+                    if (minIntervalNs - elapsed > 2_000_000) {
+                        //noinspection BusyWait
+                        Thread.sleep(1);
+                    } else {
+                        Thread.yield();
+                    }
+                }
+                lastChunkTime = System.nanoTime();
+
+                // Wait until we are under the max concurrent limit (sanity cap 500)
+                while (inFlight.get() >= 500 && !stopped) {
                     //noinspection BusyWait
                     Thread.sleep(2);
                 }

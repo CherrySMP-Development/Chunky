@@ -17,6 +17,16 @@ public class BukkitConfig implements Config {
     public BukkitConfig(final ChunkyBukkit plugin) {
         this.plugin = plugin;
         final FileConfigurationOptions options = plugin.getConfig().options();
+
+        // Add default values before copying
+        plugin.getConfig().addDefault("version", 2);
+        plugin.getConfig().addDefault("language", "en");
+        plugin.getConfig().addDefault("continue-on-restart", false);
+        plugin.getConfig().addDefault("force-load-existing-chunks", false);
+        plugin.getConfig().addDefault("silent", false);
+        plugin.getConfig().addDefault("update-interval", 1);
+        plugin.getConfig().addDefault("rate-limit", 1000.0);
+
         options.copyDefaults(true);
         try {
             FileConfigurationOptions.class.getMethod("header", String.class).invoke(options, String.join("\n", HEADER));

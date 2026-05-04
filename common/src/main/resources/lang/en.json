@@ -101,6 +101,6 @@
   "wrap_radial": "radial",
   "wrap_x": "x",
   "wrap_z": "z",
-  "help_speed": "&2chunky speed <500-10000>&r - Set generation speed target",
+  "help_speed": "&2chunky speed <100-10000>&r - Set generation speed target",
   "format_speed": "Speed target set to %s cps."
 }

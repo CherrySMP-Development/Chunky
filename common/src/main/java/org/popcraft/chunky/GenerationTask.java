@@ -137,7 +137,7 @@ public class GenerationTask implements Runnable {
             stop(true);
         }
         // Max CPS enforced by the rate limiter
-        final double MAX_CPS = 1150.0;
+        final double MAX_CPS = chunky.getConfig().getRateLimit();
         final java.util.concurrent.atomic.AtomicInteger inFlight = new java.util.concurrent.atomic.AtomicInteger(0);
         final boolean forceLoadExistingChunks = chunky.getConfig().isForceLoadExistingChunks();
         startTime.set(System.currentTimeMillis());
@@ -152,7 +152,7 @@ public class GenerationTask implements Runnable {
                     if (!warnedCpu) {
                         final double cpuLoad = getCpuLoad();
                         if (cpuLoad > 0.95) {
-                            chunky.getServer().getConsole().sendMessage("§c[Chunky] Warning: CPU load is >95%! Generation speed is uncapped. Performance may degrade.§r");
+                            chunky.getServer().getConsole().sendMessage(String.format("§c[Chunky] Warning: CPU load is >95%%! Generation speed is locked at %.1f CPS and will not throttle. Performance may degrade.§r", MAX_CPS));
                             warnedCpu = true;
                         }
                     }

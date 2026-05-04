@@ -119,6 +119,22 @@ public class SpongeConfig implements Config {
     }
 
     @Override
+    public double getRateLimit() {
+        return this.rootNode == null ? 1000.0 : this.rootNode.node(ROOT_CONFIG_NODE, "rate-limit").getDouble(1000.0);
+    }
+
+    @Override
+    public void setRateLimit(final double rateLimit) {
+        if (this.rootNode != null) {
+            try {
+                this.rootNode.node(ROOT_CONFIG_NODE, "rate-limit").set(rateLimit);
+            } catch (SerializationException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    @Override
     public void reload() {
         try {
             this.rootNode = configLoader.load();

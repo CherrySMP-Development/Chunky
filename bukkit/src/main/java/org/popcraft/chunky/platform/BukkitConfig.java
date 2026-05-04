@@ -73,6 +73,16 @@ public class BukkitConfig implements Config {
     }
 
     @Override
+    public double getRateLimit() {
+        return plugin.getConfig().getDouble("rate-limit", 1000.0);
+    }
+
+    @Override
+    public void setRateLimit(final double rateLimit) {
+        plugin.getConfig().set("rate-limit", rateLimit);
+    }
+
+    @Override
     public void reload() {
         plugin.reloadConfig();
     }

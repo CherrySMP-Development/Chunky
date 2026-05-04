@@ -75,6 +75,16 @@ public class GsonConfig implements Config {
     }
 
     @Override
+    public double getRateLimit() {
+        return Optional.ofNullable(configModel.rateLimit).orElse(1000.0);
+    }
+
+    @Override
+    public void setRateLimit(final double rateLimit) {
+        configModel.rateLimit = rateLimit;
+    }
+
+    @Override
     public void reload() {
         try (final Reader reader = Files.newBufferedReader(savePath)) {
             configModel = GSON.fromJson(reader, ConfigModel.class);
@@ -104,6 +114,7 @@ public class GsonConfig implements Config {
         private Boolean forceLoadExistingChunks = false;
         private Boolean silent = false;
         private Integer updateInterval = 1;
+        private Double rateLimit = 1000.0;
         private Map<String, TaskModel> tasks;
 
         public Integer getVersion() {
@@ -160,6 +171,14 @@ public class GsonConfig implements Config {
 
         public void setUpdateInterval(final int updateInterval) {
             this.updateInterval = updateInterval;
+        }
+
+        public Double getRateLimit() {
+            return rateLimit;
+        }
+
+        public void setRateLimit(final Double rateLimit) {
+            this.rateLimit = rateLimit;
         }
     }
 

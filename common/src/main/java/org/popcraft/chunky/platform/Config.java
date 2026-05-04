@@ -21,5 +21,9 @@ public interface Config {
 
     void setUpdateInterval(int updateInterval);
 
+    double getRateLimit();
+
+    void setRateLimit(double rateLimit);
+
     void reload();
 }

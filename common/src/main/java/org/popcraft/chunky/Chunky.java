@@ -90,7 +90,7 @@ public class Chunky {
         eventBus.subscribe(org.popcraft.chunky.api.event.task.GenerationProgressEvent.class, event -> {
             if (!actionBarPlayers.isEmpty()) {
                 final long now = System.currentTimeMillis();
-                if (now - lastActionBarUpdateTime < 50) {
+                if (now - lastActionBarUpdateTime < 100) {
                     return;
                 }
                 lastActionBarUpdateTime = now;

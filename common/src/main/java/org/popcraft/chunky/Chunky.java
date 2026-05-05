@@ -2,6 +2,7 @@ package org.popcraft.chunky;
 
 import org.popcraft.chunky.api.ChunkyAPI;
 import org.popcraft.chunky.api.ChunkyAPIImpl;
+import org.popcraft.chunky.command.ActionbarCommand;
 import org.popcraft.chunky.command.CancelCommand;
 import org.popcraft.chunky.command.CenterCommand;
 import org.popcraft.chunky.command.ChunkyCommand;
@@ -41,10 +42,14 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 public class Chunky {
     private final Server server;
@@ -61,6 +66,7 @@ public class Chunky {
     private final Version version;
     private final Map<String, ChunkyCommand> commands;
     private final ChunkyAPI api;
+    private final Set<UUID> actionBarPlayers = ConcurrentHashMap.newKeySet();
 
     public Chunky(final Server server, final Config config) {
         this.server = server;
@@ -72,7 +78,22 @@ public class Chunky {
         this.version = loadVersion();
         this.commands = loadCommands();
         this.api = new ChunkyAPIImpl(this);
+        loadActionBarPlayers();
         ChunkyProvider.register(this);
+
+        eventBus.subscribe(org.popcraft.chunky.api.event.task.GenerationProgressEvent.class, event -> {
+            if (!actionBarPlayers.isEmpty()) {
+                final String message = String.format("&#C168DDChunks: %d &#68DDCCA Rate: %.1f cps &#DDCC68Progress: %.2f%%",
+                    event.chunks(), event.rate(), event.progress());
+                for (UUID uuid : actionBarPlayers) {
+                    server.getPlayers().stream().filter(p -> p.getUUID().equals(uuid)).findFirst().ifPresent(player -> {
+                        if (player instanceof org.popcraft.chunky.platform.Player p) {
+                            p.sendActionBar(message);
+                        }
+                    });
+                }
+            }
+        });
     }
 
     public void disable() {
@@ -105,6 +126,7 @@ public class Chunky {
 
     private Map<String, ChunkyCommand> loadCommands() {
         final Map<String, ChunkyCommand> commandMap = new HashMap<>();
+        commandMap.put("actionbar", new ActionbarCommand(this));
         commandMap.put(CommandLiteral.CANCEL, new CancelCommand(this));
         commandMap.put(CommandLiteral.CENTER, new CenterCommand(this));
         commandMap.put(CommandLiteral.CONFIRM, new ConfirmCommand(this));
@@ -192,5 +214,35 @@ public class Chunky {
 
     public ChunkyAPI getApi() {
         return api;
+    }
+
+    public Set<UUID> getActionBarPlayers() {
+        return actionBarPlayers;
+    }
+
+    private void loadActionBarPlayers() {
+        final Path file = config.getDirectory().resolve("active-actionbars.json");
+        if (Files.exists(file)) {
+            try {
+                final String content = Files.readString(file);
+                final List<String> uuids = new com.google.gson.Gson().fromJson(content, new com.google.gson.reflect.TypeToken<List<String>>(){}.getType());
+                if (uuids != null) {
+                    uuids.forEach(u -> actionBarPlayers.add(UUID.fromString(u)));
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public void saveActionBarPlayers() {
+        final Path file = config.getDirectory().resolve("active-actionbars.json");
+        try {
+            final List<String> uuids = actionBarPlayers.stream().map(UUID::toString).collect(Collectors.toList());
+            final String content = new com.google.gson.Gson().toJson(uuids);
+            Files.writeString(file, content);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }

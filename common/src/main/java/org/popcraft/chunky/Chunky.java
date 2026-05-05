@@ -95,7 +95,7 @@ public class Chunky {
                 } else if (event.chunks() >= 1000) {
                     chunksK = String.format(" (%.1fk)", event.chunks() / 1000.0);
                 }
-                final String message = String.format("&#C168DDChunks: %d%s    &#68DDCCA Rate: %.1f cps    &#DDCC68Progress: %.2f%%%%",
+                final String message = String.format("&#C168DDChunks: %d%s    &#68DDCCGen Rate: %.1f cps    &#DDCC68Progress: %.2f%%%%",
                     event.chunks(), chunksK, event.rate(), event.progress());
                 for (UUID uuid : actionBarPlayers) {
                     server.getPlayers().stream().filter(p -> p.getUUID().equals(uuid)).findFirst().ifPresent(player -> {

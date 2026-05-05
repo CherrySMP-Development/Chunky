@@ -50,6 +50,9 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.util.Locale;
 
 public class Chunky {
     private final Server server;
@@ -67,7 +70,6 @@ public class Chunky {
     private final Map<String, ChunkyCommand> commands;
     private final ChunkyAPI api;
     private final Set<UUID> actionBarPlayers = ConcurrentHashMap.newKeySet();
-    private long lastActionBarUpdateTime = 0;
 
     public Chunky(final Server server, final Config config) {
         this.server = server;
@@ -82,21 +84,19 @@ public class Chunky {
         loadActionBarPlayers();
         ChunkyProvider.register(this);
 
+        final DecimalFormat commaFormat = new DecimalFormat("#,###", new DecimalFormatSymbols(Locale.US));
+
         eventBus.subscribe(org.popcraft.chunky.api.event.task.GenerationProgressEvent.class, event -> {
             if (!actionBarPlayers.isEmpty()) {
-                final long now = System.currentTimeMillis();
-                if (now - lastActionBarUpdateTime < 150) {
-                    return;
-                }
-                lastActionBarUpdateTime = now;
                 String chunksK = "";
                 if (event.chunks() >= 1000000) {
-                    chunksK = String.format(" (%.1fm)", event.chunks() / 1000000.0);
+                    chunksK = String.format(" (%.1f mil)", event.chunks() / 1000000.0);
                 } else if (event.chunks() >= 1000) {
                     chunksK = String.format(" (%.1fk)", event.chunks() / 1000.0);
                 }
-                final String message = String.format("&#C168DDChunks: %d%s    &#68DDCCGen Rate: %.1f cps    &#DDCC68Progress: %.2f%%%%",
-                    event.chunks(), chunksK, event.rate(), event.progress());
+                final String formattedChunks = commaFormat.format(event.chunks()).replace(',', '.');
+                final String message = String.format("&#C168DDChunks: %s%s    &#68DDCCGen Rate: %.1f cps    &#DDCC68Progress: %.2f%%%%    &#6885DDETA: %d:%02d:%02d",
+                    formattedChunks, chunksK, event.rate(), event.progress(), event.hours(), event.minutes(), event.seconds());
                 for (UUID uuid : actionBarPlayers) {
                     server.getPlayers().stream().filter(p -> p.getUUID().equals(uuid)).findFirst().ifPresent(player -> {
                         if (player instanceof org.popcraft.chunky.platform.Player p) {

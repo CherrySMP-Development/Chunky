@@ -89,8 +89,14 @@ public class Chunky {
                     return;
                 }
                 lastActionBarUpdateTime = now;
-                final String message = String.format("&#C168DDChunks: %d    &#68DDCCA Rate: %.1f cps    &#DDCC68Progress: %.2f%%%%",
-                    event.chunks(), event.rate(), event.progress());
+                String chunksK = "";
+                if (event.chunks() >= 1000000) {
+                    chunksK = String.format(" (%.1fm)", event.chunks() / 1000000.0);
+                } else if (event.chunks() >= 1000) {
+                    chunksK = String.format(" (%.1fk)", event.chunks() / 1000.0);
+                }
+                final String message = String.format("&#C168DDChunks: %d%s    &#68DDCCA Rate: %.1f cps    &#DDCC68Progress: %.2f%%%%",
+                    event.chunks(), chunksK, event.rate(), event.progress());
                 for (UUID uuid : actionBarPlayers) {
                     server.getPlayers().stream().filter(p -> p.getUUID().equals(uuid)).findFirst().ifPresent(player -> {
                         if (player instanceof org.popcraft.chunky.platform.Player p) {

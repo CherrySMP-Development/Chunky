@@ -67,6 +67,7 @@ public class Chunky {
     private final Map<String, ChunkyCommand> commands;
     private final ChunkyAPI api;
     private final Set<UUID> actionBarPlayers = ConcurrentHashMap.newKeySet();
+    private long lastActionBarUpdateTime = 0;
 
     public Chunky(final Server server, final Config config) {
         this.server = server;
@@ -83,7 +84,12 @@ public class Chunky {
 
         eventBus.subscribe(org.popcraft.chunky.api.event.task.GenerationProgressEvent.class, event -> {
             if (!actionBarPlayers.isEmpty()) {
-                final String message = String.format("&#C168DDChunks: %d &#68DDCCA Rate: %.1f cps &#DDCC68Progress: %.2f%%",
+                final long now = System.currentTimeMillis();
+                if (now - lastActionBarUpdateTime < 150) {
+                    return;
+                }
+                lastActionBarUpdateTime = now;
+                final String message = String.format("&#C168DDChunks: %d    &#68DDCCA Rate: %.1f cps    &#DDCC68Progress: %.2f%%%%",
                     event.chunks(), event.rate(), event.progress());
                 for (UUID uuid : actionBarPlayers) {
                     server.getPlayers().stream().filter(p -> p.getUUID().equals(uuid)).findFirst().ifPresent(player -> {

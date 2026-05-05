@@ -27,6 +27,7 @@ public final class CommandLiteral {
     public static final String SILENT = "silent";
     public static final String SPAWN = "spawn";
     public static final String START = "start";
+    public static final String STORAGECALC = "storagecalc";
     public static final String TRIM = "trim";
     public static final String TRIM_MODE = "trimMode";
     public static final String WORLDBORDER = "worldborder";

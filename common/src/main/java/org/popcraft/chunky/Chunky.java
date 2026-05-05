@@ -22,6 +22,7 @@ import org.popcraft.chunky.command.ShapeCommand;
 import org.popcraft.chunky.command.SilentCommand;
 import org.popcraft.chunky.command.SpawnCommand;
 import org.popcraft.chunky.command.StartCommand;
+import org.popcraft.chunky.command.StoragecalcCommand;
 import org.popcraft.chunky.command.TrimCommand;
 import org.popcraft.chunky.command.WorldBorderCommand;
 import org.popcraft.chunky.command.WorldCommand;
@@ -162,6 +163,7 @@ public class Chunky {
         commandMap.put(CommandLiteral.SILENT, new SilentCommand(this));
         commandMap.put(CommandLiteral.SPAWN, new SpawnCommand(this));
         commandMap.put(CommandLiteral.START, new StartCommand(this));
+        commandMap.put(CommandLiteral.STORAGECALC, new StoragecalcCommand(this));
         commandMap.put(CommandLiteral.TRIM, new TrimCommand(this));
         commandMap.put(CommandLiteral.WORLDBORDER, new WorldBorderCommand(this));
         commandMap.put(CommandLiteral.WORLD, new WorldCommand(this));

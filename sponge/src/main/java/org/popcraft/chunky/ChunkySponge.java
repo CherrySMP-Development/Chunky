@@ -257,6 +257,13 @@ public class ChunkySponge {
                     return CommandResult.success();
                 })
                 .build();
+        final Command.Parameterized storagecalcCommand = Command.builder()
+                .permission("chunky.command.storagecalc")
+                .executor(ctx -> {
+                    executeSpongeCommand(ctx, CommandLiteral.STORAGECALC, List.of());
+                    return CommandResult.success();
+                })
+                .build();
         final Command.Parameterized trimCommand = Command.builder()
                 .permission("chunky.command.trim")
                 .addParameters(
@@ -316,6 +323,7 @@ public class ChunkySponge {
                 .addChild(silentCommand, CommandLiteral.SILENT)
                 .addChild(spawnCommand, CommandLiteral.SPAWN)
                 .addChild(startCommand, CommandLiteral.START)
+                .addChild(storagecalcCommand, CommandLiteral.STORAGECALC)
                 .addChild(trimCommand, CommandLiteral.TRIM)
                 .addChild(worldborderCommand, CommandLiteral.WORLDBORDER)
                 .addChild(worldCommand, CommandLiteral.WORLD)

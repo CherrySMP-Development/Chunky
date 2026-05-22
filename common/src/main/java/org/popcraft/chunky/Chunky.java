@@ -30,7 +30,6 @@ import org.popcraft.chunky.event.EventBus;
 import org.popcraft.chunky.platform.Config;
 import org.popcraft.chunky.platform.Sender;
 import org.popcraft.chunky.platform.Server;
-import org.popcraft.chunky.util.Input;
 import org.popcraft.chunky.util.PendingAction;
 import org.popcraft.chunky.util.RegionCache;
 import org.popcraft.chunky.util.TaskLoader;
@@ -66,7 +65,6 @@ public class Chunky {
     private final Map<String, TrimCommand.Task> trimTasks = new ConcurrentHashMap<>();
     private final Map<String, PendingAction> pendingActions = new HashMap<>();
     private final RegionCache regionCache = new RegionCache();
-    private final double limit;
     private final Version version;
     private final Map<String, ChunkyCommand> commands;
     private final ChunkyAPI api;
@@ -79,7 +77,6 @@ public class Chunky {
         this.taskLoader = new TaskLoader(this);
         this.eventBus = new EventBus();
         this.selection = Selection.builder(this, server.getWorlds().getFirst());
-        this.limit = loadLimit().orElse(100D);
         this.version = loadVersion();
         this.commands = loadCommands();
         this.api = new ChunkyAPIImpl(this);
@@ -120,17 +117,6 @@ public class Chunky {
         getGenerationTasks().values().forEach(generationTask -> generationTask.stop(false));
         getScheduler().cancelTasks();
         ChunkyProvider.unregister();
-    }
-
-    private Optional<Double> loadLimit() {
-        final Path limitFile = config.getDirectory().resolve(".chunky.properties");
-        try (final InputStream input = Files.newInputStream(limitFile)) {
-            final Properties properties = new Properties();
-            properties.load(input);
-            return Input.tryDouble(properties.getProperty("radius-limit"));
-        } catch (IOException e) {
-            return Optional.empty();
-        }
     }
 
     private Version loadVersion() {
@@ -222,10 +208,6 @@ public class Chunky {
 
     public RegionCache getRegionCache() {
         return regionCache;
-    }
-
-    public double getLimit() {
-        return limit;
     }
 
     public Version getVersion() {

@@ -76,10 +76,6 @@ public class StartCommand implements ChunkyCommand {
             sender.sendMessagePrefixed(TranslationKey.FORMAT_STARTED_ALREADY, current.world().getName());
             return;
         }
-        if (current.radiusX() > chunky.getLimit()) {
-            sender.sendMessagePrefixed(TranslationKey.FORMAT_START_LIMIT, Formatting.number(chunky.getLimit()));
-            return;
-        }
         final Runnable startAction = () -> {
             final GenerationTask generationTask = new GenerationTask(chunky, current);
             chunky.getGenerationTasks().put(current.world().getName(), generationTask);
